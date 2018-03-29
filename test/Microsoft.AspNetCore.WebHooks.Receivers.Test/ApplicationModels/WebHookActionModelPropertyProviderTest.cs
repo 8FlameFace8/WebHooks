@@ -15,7 +15,7 @@ using Xunit;
 
 namespace Microsoft.AspNetCore.WebHooks.ApplicationModels
 {
-    public class WebHookMetadataProviderTests
+    public class WebHookActionModelPropertyProviderTest
     {
         public static TheoryData<IWebHookMetadata[], Type> DuplicateMetadataData
         {
@@ -535,7 +535,7 @@ namespace Microsoft.AspNetCore.WebHooks.ApplicationModels
                 });
         }
 
-        private class TestMetadataProvider : WebHookMetadataProvider
+        private class TestMetadataProvider : WebHookActionModelPropertyProvider
         {
             public TestMetadataProvider(IEnumerable<IWebHookMetadata> metadata)
                 : base(
@@ -543,6 +543,7 @@ namespace Microsoft.AspNetCore.WebHooks.ApplicationModels
                     metadata.OfType<IWebHookBodyTypeMetadataService>(),
                     metadata.OfType<IWebHookEventFromBodyMetadata>(),
                     metadata.OfType<IWebHookEventMetadata>(),
+                    metadata.OfType<IWebHookFilterMetadata>(),
                     metadata.OfType<IWebHookGetHeadRequestMetadata>(),
                     metadata.OfType<IWebHookPingRequestMetadata>(),
                     metadata.OfType<IWebHookVerifyCodeMetadata>())

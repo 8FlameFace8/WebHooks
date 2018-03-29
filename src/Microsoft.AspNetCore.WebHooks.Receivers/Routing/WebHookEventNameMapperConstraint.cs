@@ -2,9 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Routing;
@@ -20,26 +18,66 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
     /// <see cref="IWebHookEventMetadata"/> or with <see cref="IWebHookEventMetadata.ConstantValue"/>
     /// non-<see langword="null"/>. Otherwise, the request must contain one or more event names.
     /// </summary>
-    public class WebHookEventMapperConstraint : IActionConstraint
+    public class WebHookEventNameMapperConstraint : IActionConstraint
     {
-        private readonly IReadOnlyList<IWebHookEventMetadata> _eventMetadata;
+        private readonly IWebHookEventMetadata _eventMetadata;
         private readonly ILogger _logger;
+        private readonly WebHookMetadataProvider _metadataProvider;
 
         /// <summary>
-        /// Instantiates a new <see cref="WebHookEventMapperConstraint"/> instance.
+        /// Instantiates a new <see cref="WebHookEventNameMapperConstraint"/> instance to verify the given
+        /// <paramref name="eventMetadata"/>.
         /// </summary>
-        /// <param name="eventMetadata">The collection of <see cref="IWebHookEventMetadata"/> services.</param>
+        /// <param name="eventMetadata">The receiver's <see cref="IWebHookEventMetadata"/>.</param>
         /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
-        public WebHookEventMapperConstraint(
-            IEnumerable<IWebHookEventMetadata> eventMetadata,
+        public WebHookEventNameMapperConstraint(
+            IWebHookEventMetadata eventMetadata,
             ILoggerFactory loggerFactory)
         {
-            _eventMetadata = eventMetadata.ToArray();
-            _logger = loggerFactory.CreateLogger<WebHookEventMapperConstraint>();
+            if (eventMetadata == null)
+            {
+                throw new ArgumentNullException(nameof(eventMetadata));
+            }
+            if (loggerFactory == null)
+            {
+                throw new ArgumentNullException(nameof(loggerFactory));
+            }
+
+            _eventMetadata = eventMetadata;
+            _logger = loggerFactory.CreateLogger<WebHookEventNameMapperConstraint>();
         }
 
         /// <summary>
-        /// Gets the <see cref="IActionConstraint.Order"/> value used in all <see cref="WebHookEventMapperConstraint"/>
+        /// Instantiates a new <see cref="WebHookEventNameMapperConstraint"/> instance to verify the receiver's
+        /// <see cref="IWebHookEventMetadata"/>. That metadata is found in <paramref name="metadataProvider"/>).
+        /// </summary>
+        /// <param name="metadataProvider">
+        /// The <see cref="WebHookMetadataProvider"/> service. Searched for applicable metadata per-request.
+        /// </param>
+        /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
+        /// <remarks>
+        /// This overload is intended for use with <see cref="GeneralWebHookAttribute"/>.
+        /// </remarks>
+        public WebHookEventNameMapperConstraint(
+            WebHookMetadataProvider metadataProvider,
+            ILoggerFactory loggerFactory)
+        {
+            if (metadataProvider == null)
+            {
+                throw new ArgumentNullException(nameof(metadataProvider));
+            }
+            if (loggerFactory == null)
+            {
+                throw new ArgumentNullException(nameof(loggerFactory));
+            }
+
+            _logger = loggerFactory.CreateLogger<WebHookEventNameMapperConstraint>();
+            _metadataProvider = metadataProvider;
+        }
+
+        /// <summary>
+        /// Gets the <see cref="IActionConstraint.Order"/> value used in all
+        /// <see cref="WebHookEventNameMapperConstraint"/>
         /// instances.
         /// </summary>
         /// <value>Chosen to run this constraint just after <see cref="WebHookIdConstraint"/>.</value>
@@ -57,37 +95,33 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
             }
 
             var routeContext = context.RouteContext;
-            if (routeContext.RouteData.TryGetWebHookReceiverName(
-                context.CurrentCandidate.Action,
-                out var receiverName))
+            var eventMetadata = _eventMetadata;
+            if (eventMetadata == null)
             {
-                var eventMetadata = _eventMetadata.FirstOrDefault(metadata => metadata.IsApplicable(receiverName));
-                if (eventMetadata != null)
+                if (!routeContext.RouteData.TryGetWebHookReceiverName(
+                    context.CurrentCandidate.Action,
+                    out var receiverName))
                 {
-                    return Accept(eventMetadata, routeContext);
+                    var message = string.Format(
+                        CultureInfo.CurrentCulture,
+                        Resources.EventConstraints_NoReceiverName,
+                        typeof(WebHookReceiverNameConstraint));
+                    throw new InvalidOperationException(message);
                 }
 
-                // This receiver does not have IWebHookEventMetadata and that's fine.
-                return true;
+                eventMetadata = _metadataProvider.GetEventMetadata(receiverName);
             }
 
-            var message = string.Format(
-                CultureInfo.CurrentCulture,
-                Resources.EventConstraints_NoReceiverName,
-                typeof(WebHookReceiverExistsConstraint));
-            throw new InvalidOperationException(message);
+            if (eventMetadata != null)
+            {
+                return Accept(eventMetadata, routeContext);
+            }
+
+            // This receiver does not have IWebHookEventMetadata and that's fine.
+            return true;
         }
 
-        /// <summary>
-        /// Gets an indication whether the expected event names are available in the request. Maps the event names into
-        /// route values.
-        /// </summary>
-        /// <param name="eventMetadata">The <see cref="IWebHookEventMetadata"/> for this receiver.</param>
-        /// <param name="routeContext">The <see cref="RouteContext"/> for this constraint and request.</param>
-        /// <returns>
-        /// <see langword="true"/> if event names are available in the request; <see langword="false"/> otherwise.
-        /// </returns>
-        protected virtual bool Accept(IWebHookEventMetadata eventMetadata, RouteContext routeContext)
+        private bool Accept(IWebHookEventMetadata eventMetadata, RouteContext routeContext)
         {
             if (eventMetadata == null)
             {

@@ -4,7 +4,6 @@
 using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -61,13 +60,7 @@ namespace Microsoft.AspNetCore.WebHooks.Filters
                 throw new ArgumentNullException(nameof(context));
             }
 
-            var routeData = context.RouteData;
-            if (!routeData.TryGetWebHookReceiverName(out var receiverName) || !IsApplicable(receiverName))
-            {
-                return;
-            }
-
-            var notificationId = (string)routeData.Values[StripeConstants.NotificationIdKeyName];
+            var notificationId = (string)context.RouteData.Values[StripeConstants.NotificationIdKeyName];
             if (IsTestEvent(notificationId))
             {
                 // Log about and optionally short-circuit this test event.

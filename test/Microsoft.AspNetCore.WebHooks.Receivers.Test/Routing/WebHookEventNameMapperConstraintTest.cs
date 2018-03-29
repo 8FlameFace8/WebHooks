@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Microsoft.AspNetCore.WebHooks.Routing
 {
-    public class WebHookEventMapperConstraintTests : WebHookConstraintTestBase
+    public class WebHookEventNameMapperConstraintTest : WebHookConstraintTestBase
     {
         protected override string KeyName => WebHookConstants.ReceiverKeyName;
 
@@ -23,8 +23,8 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
                 .SetupGet(m => m.ConstantValue)
                 .Returns("constant value");
 
-            var constraint = new WebHookEventMapperConstraint(
-                new[] { webHookEventMetadata.Object },
+            var constraint = new WebHookEventNameMapperConstraint(
+                webHookEventMetadata.Object,
                 NullLoggerFactory.Instance);
             var context = GetContext(constraint);
             context.RouteContext.RouteData.Values.Add(KeyName, "match");
@@ -45,8 +45,8 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
                 .SetupGet(m => m.HeaderName)
                 .Returns("another");
 
-            var constraint = new WebHookEventMapperConstraint(
-                new[] { webHookEventMetadata.Object },
+            var constraint = new WebHookEventNameMapperConstraint(
+                webHookEventMetadata.Object,
                 NullLoggerFactory.Instance);
             var context = GetContext(constraint);
             context.RouteContext.RouteData.Values.Add(KeyName, "match");
@@ -71,8 +71,8 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
                 .SetupGet(m => m.QueryParameterName)
                 .Returns("query");
 
-            var constraint = new WebHookEventMapperConstraint(
-                new[] { webHookEventMetadata.Object },
+            var constraint = new WebHookEventNameMapperConstraint(
+                webHookEventMetadata.Object,
                 NullLoggerFactory.Instance);
             var context = GetContext(constraint);
             context.RouteContext.RouteData.Values.Add(KeyName, "match");
@@ -94,8 +94,8 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
                 .SetupGet(m => m.QueryParameterName)
                 .Returns("another");
 
-            var constraint = new WebHookEventMapperConstraint(
-                new[] { webHookEventMetadata.Object },
+            var constraint = new WebHookEventNameMapperConstraint(
+                webHookEventMetadata.Object,
                 NullLoggerFactory.Instance);
             var context = GetContext(constraint);
             context.RouteContext.RouteData.Values.Add(KeyName, "match");
@@ -142,7 +142,7 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
             // This constraint throws if request does not contain receiver name route value.
             // Arrange 2
             var expectedMessage = "Invalid WebHook constraint configuration encountered. Request contained no " +
-                $"receiver name and '{typeof(WebHookReceiverExistsConstraint)}' should have disallowed the request.";
+                $"receiver name and '{typeof(WebHookReceiverNameConstraint)}' should have disallowed the request.";
 
             // Act & Assert
             var exception = Assert.Throws<InvalidOperationException>(() => process(context));
@@ -172,7 +172,7 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
                 .SetupGet(m => m.QueryParameterName)
                 .Returns("query");
 
-            return new WebHookEventMapperConstraint(new[] { webHookEventMetadata.Object }, NullLoggerFactory.Instance);
+            return new WebHookEventNameMapperConstraint(webHookEventMetadata.Object, NullLoggerFactory.Instance);
         }
 
         private Mock<IWebHookEventMetadata> GetEventMetadata()

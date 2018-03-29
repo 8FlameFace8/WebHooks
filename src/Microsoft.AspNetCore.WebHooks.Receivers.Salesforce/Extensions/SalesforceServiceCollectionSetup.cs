@@ -33,7 +33,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddEnumerable(ServiceDescriptor.Transient<IConfigureOptions<MvcOptions>, MvcOptionsSetup>());
             WebHookMetadata.Register<SalesforceMetadata>(services);
             services.TryAddSingleton<ISalesforceResultCreator, SalesforceResultCreator>();
-
             services.TryAddSingleton<SalesforceVerifyOrganizationIdFilter>();
         }
 
@@ -59,8 +58,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 // the XElement type.
                 var provider = new SalesforceNotificationsModelBinderProvider(_loggerFactory, options, _readerFactory);
                 options.ModelBinderProviders.Insert(0, provider);
-
-                options.Filters.AddService<SalesforceVerifyOrganizationIdFilter>(WebHookSecurityFilter.Order);
             }
         }
     }

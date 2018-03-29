@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Microsoft.AspNetCore.WebHooks.Routing
 {
-    public class WebHookReceiverExistsConstraintTests : WebHookConstraintTestBase
+    public class GeneralWebHookReceiverNameConstraintTest : WebHookConstraintTestBase
     {
         protected override string KeyName => WebHookConstants.ReceiverKeyName;
 
@@ -18,7 +18,7 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
         public void Accept_Fails_OnEmptyMetadata(string requestValue)
         {
             // Accept
-            var constraint = new WebHookReceiverExistsConstraint(Array.Empty<IWebHookBodyTypeMetadataService>());
+            var constraint = new WebHookReceiverNameConstraint(new TestMetadataProvider(null));
             var context = GetContext(constraint);
             context.CurrentCandidate.Action.RouteValues.Add(KeyName, requestValue);
 
@@ -50,15 +50,65 @@ namespace Microsoft.AspNetCore.WebHooks.Routing
 
         protected override IActionConstraint GetConstraint()
         {
-            var webHookBodyTypeMetadataService = new Mock<IWebHookBodyTypeMetadataService>(MockBehavior.Strict);
-            webHookBodyTypeMetadataService
+            var bodyTypeMetadata = new Mock<IWebHookBodyTypeMetadataService>(MockBehavior.Strict);
+            bodyTypeMetadata
                 .SetupGet(m => m.ReceiverName)
                 .Returns("match");
-            webHookBodyTypeMetadataService
+            bodyTypeMetadata
                 .Setup(m => m.IsApplicable(It.IsAny<string>()))
                 .Returns((string value) => string.Equals("match", value, StringComparison.OrdinalIgnoreCase));
 
-            return new WebHookReceiverExistsConstraint(new[] { webHookBodyTypeMetadataService.Object });
+            return new WebHookReceiverNameConstraint(new TestMetadataProvider(bodyTypeMetadata.Object));
+        }
+
+        private class TestMetadataProvider : WebHookMetadataProvider
+        {
+            private readonly IWebHookBodyTypeMetadataService _bodyTypeMetadata;
+
+            public TestMetadataProvider(IWebHookBodyTypeMetadataService bodyTypeMetadata)
+            {
+                _bodyTypeMetadata = bodyTypeMetadata;
+            }
+
+            public override IWebHookBindingMetadata GetBindingMetadata(string receiverName)
+            {
+                return null;
+            }
+
+            public override IWebHookBodyTypeMetadataService GetBodyTypeMetadata(string receiverName)
+            {
+                return _bodyTypeMetadata;
+            }
+
+            public override IWebHookEventFromBodyMetadata GetEventFromBodyMetadata(string receiverName)
+            {
+                return null;
+            }
+
+            public override IWebHookEventMetadata GetEventMetadata(string receiverName)
+            {
+                return null;
+            }
+
+            public override IWebHookFilterMetadata GetFilterMetadata(string receiverName)
+            {
+                return null;
+            }
+
+            public override IWebHookGetHeadRequestMetadata GetGetHeadRequestMetadata(string receiverName)
+            {
+                return null;
+            }
+
+            public override IWebHookPingRequestMetadata GetPingRequestMetadata(string receiverName)
+            {
+                return null;
+            }
+
+            public override IWebHookVerifyCodeMetadata GetVerifyCodeMetadata(string receiverName)
+            {
+                return null;
+            }
         }
     }
 }

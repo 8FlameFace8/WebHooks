@@ -22,21 +22,28 @@ namespace Microsoft.AspNetCore.WebHooks.ApplicationModels
     /// <see cref="ApiBehaviorOptions.SuppressModelStateInvalidFilter"/> is <see langword="true"/>) filter to the
     /// <see cref="ActionModel.Filters"/> collections of WebHook actions.
     /// </summary>
-    public class WebHookFilterProvider : IApplicationModelProvider
+    public class WebHookActionModelFilterProvider : IApplicationModelProvider
     {
         private readonly ApiBehaviorOptions _behaviorOptions;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ModelStateInvalidFilter _modelStateInvalidFilter;
+        private readonly WebHookMetadataProvider _metadataProvider;
 
         /// <summary>
-        /// Instantiates a new <see cref="WebHookFilterProvider"/> instance with the given
-        /// <paramref name="behaviorOptions"/> and <paramref name="loggerFactory"/>.
+        /// Instantiates a new <see cref="WebHookActionModelFilterProvider"/> instance.
         /// </summary>
+        /// <param name="metadataProvider">
+        /// The <see cref="WebHookMetadataProvider"/> service. Searched for applicable metadata per-request.
+        /// </param>
         /// <param name="behaviorOptions">The <see cref="ApiBehaviorOptions"/> accessor.</param>
         /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
-        public WebHookFilterProvider(IOptions<ApiBehaviorOptions> behaviorOptions, ILoggerFactory loggerFactory)
+        public WebHookActionModelFilterProvider(
+            WebHookMetadataProvider metadataProvider,
+            IOptions<ApiBehaviorOptions> behaviorOptions,
+            ILoggerFactory loggerFactory)
         {
             _behaviorOptions = behaviorOptions.Value;
+            _metadataProvider = metadataProvider;
             _loggerFactory = loggerFactory;
 
             var logger = loggerFactory.CreateLogger<ModelStateInvalidFilter>();
@@ -45,28 +52,28 @@ namespace Microsoft.AspNetCore.WebHooks.ApplicationModels
 
         /// <summary>
         /// Gets the <see cref="IApplicationModelProvider.Order"/> value used in all
-        /// <see cref="WebHookFilterProvider"/> instances. The WebHook <see cref="IApplicationModelProvider"/> order
-        /// is
+        /// <see cref="WebHookActionModelFilterProvider"/> instances. The WebHook
+        /// <see cref="IApplicationModelProvider"/> order is
         /// <list type="number">
         /// <item>
         /// Add <see cref="IWebHookMetadata"/> references to the <see cref="ActionModel.Properties"/> collections of
         /// WebHook actions and validate those <see cref="IWebHookMetadata"/> attributes and services (in
-        /// <see cref="WebHookMetadataProvider"/>).
+        /// <see cref="WebHookActionModelPropertyProvider"/>).
         /// </item>
         /// <item>
         /// Add routing information (<see cref="SelectorModel"/> settings) to <see cref="ActionModel"/>s of WebHook
-        /// actions (in <see cref="WebHookRoutingProvider"/>).
+        /// actions (in <see cref="WebHookSelectorModelProvider"/>).
         /// </item>
         /// <item>
         /// Add filters to the <see cref="ActionModel.Filters"/> collections of WebHook actions (in this provider).
         /// </item>
         /// <item>
         /// Add model binding information (<see cref="BindingInfo"/> settings) to <see cref="ParameterModel"/>s of
-        /// WebHook actions (in <see cref="WebHookModelBindingProvider"/>).
+        /// WebHook actions (in <see cref="WebHookBindingInfoProvider"/>).
         /// </item>
         /// </list>
         /// </summary>
-        public static int Order => WebHookRoutingProvider.Order + 10;
+        public static int Order => WebHookSelectorModelProvider.Order + 10;
 
         /// <inheritdoc />
         int IApplicationModelProvider.Order => Order;
@@ -96,7 +103,6 @@ namespace Microsoft.AspNetCore.WebHooks.ApplicationModels
             // No-op
         }
 
-
         private void Apply(ActionModel action)
         {
             var attribute = action.Attributes.OfType<WebHookAttribute>().FirstOrDefault();
@@ -107,6 +113,7 @@ namespace Microsoft.AspNetCore.WebHooks.ApplicationModels
             }
 
             var filters = action.Filters;
+            AddReceiverFilters(action, filters);
             AddVerifyBodyFilter(action.Properties, filters);
             if (!_behaviorOptions.SuppressModelStateInvalidFilter)
             {
@@ -114,18 +121,31 @@ namespace Microsoft.AspNetCore.WebHooks.ApplicationModels
             }
         }
 
+        private void AddReceiverFilters(ActionModel action, IList<IFilterMetadata> filters)
+        {
+            if (action.Properties.TryGetValue(typeof(IWebHookFilterMetadata), out var filterMetadataObject) &&
+                filterMetadataObject is IWebHookFilterMetadata filterMetadata)
+            {
+                var context = new WebHookFilterMetadataContext(action);
+                filterMetadata.AddFilters(context);
+                foreach (var filter in context.Results)
+                {
+                    filters.Add(filter);
+                }
+            }
+        }
+
         private void AddVerifyBodyFilter(IDictionary<object, object> properties, IList<IFilterMetadata> filters)
         {
             WebHookVerifyBodyTypeFilter filter;
             var bodyTypeMetadataObject = properties[typeof(IWebHookBodyTypeMetadataService)];
-            if (bodyTypeMetadataObject is IWebHookBodyTypeMetadataService receiverBodyTypeMetadata)
+            if (bodyTypeMetadataObject is IWebHookBodyTypeMetadataService bodyTypeMetadata)
             {
-                filter = new WebHookVerifyBodyTypeFilter(receiverBodyTypeMetadata, _loggerFactory);
+                filter = new WebHookVerifyBodyTypeFilter(_loggerFactory, bodyTypeMetadata);
             }
             else
             {
-                var allBodyTypeMetadata = (IReadOnlyList<IWebHookBodyTypeMetadataService>)bodyTypeMetadataObject;
-                filter = new WebHookVerifyBodyTypeFilter(allBodyTypeMetadata, _loggerFactory);
+                filter = new WebHookVerifyBodyTypeFilter(_loggerFactory, _metadataProvider);
             }
 
             filters.Add(filter);

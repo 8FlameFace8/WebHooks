@@ -14,8 +14,8 @@ namespace Microsoft.AspNetCore.WebHooks.Filters
 {
     /// <summary>
     /// An <see cref="IResourceFilter"/> to allow only POST WebHook requests with a non-empty request body. To support
-    /// GET or HEAD requests the receiver project should implement <see cref="Metadata.IWebHookGetHeadRequestMetadata"/>
-    /// in its metadata service.
+    /// GET or HEAD requests the receiver project should implement
+    /// <see cref="Metadata.IWebHookGetHeadRequestMetadata"/> in its metadata service.
     /// </summary>
     /// <remarks>
     /// Done as an <see cref="IResourceFilter"/> implementation and not an
@@ -54,8 +54,8 @@ namespace Microsoft.AspNetCore.WebHooks.Filters
         /// <item>Confirm it's a POST request (in this filter).</item>
         /// <item>Confirm body type (in <see cref="WebHookVerifyBodyTypeFilter"/>).</item>
         /// <item>
-        /// Map event name(s), if not done in <see cref="Routing.WebHookEventMapperConstraint"/> for this receiver (in
-        /// <see cref="WebHookEventMapperFilter"/>).
+        /// Map event name(s), if not done in <see cref="Routing.WebHookEventNameMapperConstraint"/> for this receiver
+        /// (in <see cref="WebHookEventNameMapperFilter"/>).
         /// </item>
         /// <item>
         /// Short-circuit ping requests, if not done in <see cref="WebHookGetHeadRequestFilter"/> for this receiver (in
